@@ -1,45 +1,29 @@
 # AIR-QUALITY-MONITOR-USING-RASPBERRYPI2
+import RPi.GPIO as GPIO
 import time
-import Adafruit_DHT
-import spidev
 
-# Set up SPI connection for air quality sensor
-spi = spidev.SpiDev()
-spi.open(0, 0)
-spi.max_speed_hz = 1200000
-
-def read_air_quality():
-    # Read data from air quality sensor
-    spi.xfer([0x01])
-    bytes = spi.readbytes(2)
-    value = (bytes[0] << 8) | bytes[1]
-    return value
-
-def calculate_aqi(value):
-    # Calculate Air Quality Index (AQI) based on sensor value
-    if value <= 50:
-        return "Good"
-    elif value <= 100:
-        return "Moderate"
-    elif value <= 150:
-        return "Unhealthy for sensitive groups"
-    elif value <= 200:
-        return "Unhealthy"
-    elif value <= 300:
-        return "Very unhealthy"
-    else:
-        return "Hazardous"
+# Setup GPIO pins
+SENSOR_PIN = 17  # MQ-3 DOUT
+BUZZER_PIN = 18  # Buzzer
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(SENSOR_PIN, GPIO.IN)  # Input for sensor
+GPIO.setup(BUZZER_PIN, GPIO.OUT)  # Output for buzzer
 
 try:
     while True:
-        # Read air quality data
-        value = read_air_quality()
-        aqi = calculate_aqi(value)
-        
-        # Print air quality data
-        print(f"Air Quality Index (AQI): {aqi} ({value})")
-        
-        # Wait for 1 minute before taking the next reading
-        time.sleep(60)
+        # Read digital output from MQ-3
+        if GPIO.input(SENSOR_PIN) == GPIO.LOW:
+            # DOUT LOW means high CO2 (threshold exceeded)
+            GPIO.output(BUZZER_PIN, GPIO.HIGH)
+            print("Alert: High CO2 levels detected!")
+        else:
+            # DOUT HIGH means normal CO2
+            GPIO.output(BUZZER_PIN, GPIO.LOW)
+            print("CO2 levels normal")
+
+        time.sleep(1)  # Check every second
+
 except KeyboardInterrupt:
-    spi.close()
+    print("Program stopped")
+finally:
+    GPIO.cleanup()
